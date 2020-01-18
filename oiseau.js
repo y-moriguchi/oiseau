@@ -1,10 +1,70 @@
 (function(root) {
+    function isObject(obj) {
+        return typeof obj === "object" && obj !== null;
+    }
+
     function isArray(obj) {
         return Object.prototype.toString.call(obj) === '[object Array]';
     }
 
     function isInteger(x) {
         return typeof x === "number" && isFinite(x) && Math.floor(x) === x;
+    }
+
+    function deepCopy(obj) {
+        var i,
+            res;
+        if(isArray(obj)) {
+            res = [];
+            for(i = 0; i < obj.length; i++) {
+                res[i] = deepCopy(obj[i]);
+            }
+        } else if(isObject(obj)) {
+            res = {};
+            for(i in obj) {
+                if(obj.hasOwnProperty(i)) {
+                    res[i] = deepCopy(obj[i]);
+                }
+            }
+        } else {
+            res = obj;
+        }
+        return res;
+    }
+
+    function isEqual(obj1, obj2) {
+        var i;
+
+        if(isArray(obj1) && isArray(obj2)) {
+            if(obj1.length !== obj2.length) {
+                return false;
+            } else {
+                for(i = 0; i < obj1.length; i++) {
+                    if(!isEqual(obj1[i], obj2[i])) {
+                        return false;
+                    }
+                }
+                return true;
+            }
+        } else if(isObject(obj1) && isObject(obj2)) {
+            for(i in obj1) {
+                if(obj1.hasOwnProperty(i)) {
+                    if(!isEqual(obj1[i], obj2[i])) {
+                        return false;
+                    }
+                }
+            }
+            for(i in obj2) {
+                if(obj2.hasOwnProperty(i)) {
+                    if(!isEqual(obj2[i], obj1[i])) {
+                        return false;
+                    }
+                }
+            }
+            return true;
+        } else {
+            return obj1 === obj2;
+        }
     }
 
     function Rena(option) {
@@ -276,32 +336,21 @@
                         return match;
                     }),
 
-                    r.action(/[_A-Z][a-z0-9]*/, function(match, syn, inh) {
+                    r.action(/[A-Z][_a-z0-9]*/, function(match, syn, inh) {
                         if(!macroEnv[match]) {
                             throw new Error("Macro not defined: " + match);
                         }
                         return substMacro(macroEnv[match]);
                     }),
 
-                    r.concat(
-                        ".",
-                        r.choice(
-                            r.action(/"[^"]+"/, function(match, syn, inh) {
-                                return substMacro({
-                                    "function": {
-                                        args: "x",
-                                        begin: [["print", { "q": match.substring(1, match.length - 1) }], "x"]
-                                    }
-                                });
-                            }),
-                            r.action(/[A-Z0-9]+/, function(match, syn, inh) {
-                                return substMacro({
-                                    "function": {
-                                        args: "x",
-                                        begin: [["print", { "q": match }], "x"]
-                                    }
-                                });
-                            }))),
+                    r.action(/<[^>]+>/, function(match, syn, inh) {
+                        return substMacro({
+                            "function": {
+                                args: "x",
+                                begin: [["print", { "q": match.substring(1, match.length - 1) }], "x"]
+                            }
+                        });
+                    }),
 
                     r.concat(
                         "[",
@@ -372,7 +421,7 @@
 
         var macroEnv = {};
         var macro = r.concat(
-                r.action(/[_A-Z][a-z0-9]*/, function(match, syn, inh) {
+                r.action(/[A-Z][_a-z0-9]*/, function(match, syn, inh) {
                     return match;
                 }),
                 r.opt(":"),
@@ -384,7 +433,19 @@
                     macroEnv[inh] = syn;
                 }));
 
-        var allParser = r.concat(r.zeroOrMore(r.concat(macro, /\r\n|\r|\n/)), parser);
+        var allParser = r.concat(
+            r.zeroOrMore(r.concat(macro, /\r\n|\r|\n/)),
+            r.choice(
+                r.concat("`", r.action(parser, function(match, syn, inh) {
+                    log(serializeJson(substDemacro(betaTransformAll(syn))));
+                    return "a";
+                })),
+                r.action(parser, function(match, syn, inh) {
+                    log(evalJson(syn));
+                    return "a";
+                })
+            )
+        );
         var cons, objFalse;
 
         function makeList(anArray, objNil) {
@@ -416,8 +477,13 @@
             }
         }
 
-        function substMacro(body) {
-            var substVars = {};
+        function substMacro(body, varNameBuilder) {
+            var substVars = {},
+                varNameBld = varNameBuilder ? varNameBuilder : defaultVarName;
+
+            function defaultVarName() {
+                return "v#" + count++;
+            }
 
             function subst(body) {
                 var varName,
@@ -425,7 +491,7 @@
                     i;
 
                 if(body["function"]) {
-                    varName = "v#" + count++;
+                    varName = varNameBld();
                     substVars[body["function"].args[0]] = varName;
                     return {
                         "function": {
@@ -451,6 +517,41 @@
             return subst(body);
         }
 
+        function substDemacro(body) {
+            var freeVars = [],
+                count = "a".charCodeAt(0),
+                countEnd = "z".charCodeAt(0);
+
+            function collectFreeVariable(body) {
+                var i;
+
+                if(isArray(body)) {
+                    for(i = 0; i < body.length; i++) {
+                        collectFreeVariable(body[i]);
+                    }
+                } else if(body["function"]) {
+                    collectFreeVariable(body["function"]["begin"]);
+                } else if(typeof body === "string" && body.length === 1) {
+                    freeVars[body.charCodeAt(0)] = 1;
+                }
+            }
+
+            function varNameBuilder() {
+                var result;
+
+                for(; freeVars[count]; count++) {}
+                if(count > countEnd) {
+                    throw new Error("Too many variables");
+                }
+                result = String.fromCharCode(count);
+                count++;
+                return result;
+            }
+
+            collectFreeVariable(body);
+            return substMacro(body, varNameBuilder);
+        }
+
         function defmacro(def) {
             macro(def, 0, 0);
         }
@@ -471,11 +572,116 @@
         cons = macroEnv["Cons"];
         objFalse = macroEnv["F"];
 
+        function betaTransformAll(func) {
+            var before,
+                after = func;
+
+            do {
+                before = after;
+                after = betaTransformAll1(after);
+            } while(!isEqual(before, after));
+            return after;
+        }
+
+        function betaTransformAll1(func) {
+            var i,
+                result = [];
+
+            if(isArray(func)) {
+                if(func[0] === "print") {
+                    return func;
+                } else if(func[0]["function"]) {
+                    return betaTransform(func[0], betaTransformAll1(func[1]));
+                } else {
+                    return [betaTransformAll1(func[0]), betaTransformAll1(func[1])];
+                }
+            } else if(func["function"]) {
+                for(i = 0; i < func["function"]["begin"].length; i++) {
+                    result.push(betaTransformAll1(func["function"]["begin"][i]));
+                }
+                return {
+                    "function": {
+                        args: [func["function"].args[0]],
+                        begin: result
+                    }
+                };
+            } else {
+                return func;
+            }
+        }
+
+        function betaTransform(func, arg) {
+            var i,
+                result;
+
+            function betaTrans(func, arg, name) {
+                var i,
+                    result = [];
+
+                if(isArray(func)) {
+                    if(func[0] === "print") {
+                        return func;
+                    } else {
+                        return [betaTrans(func[0], arg, name), betaTrans(func[1], arg, name)];
+                    }
+                } else if(func["function"]) {
+                    for(i = 0; i < func["function"]["begin"].length; i++) {
+                        result.push(betaTrans(func["function"]["begin"][i], arg, name));
+                    }
+                    return {
+                        "function": {
+                            args: [func["function"].args[0]],
+                            begin: result
+                        }
+                    };
+                } else if(func === name) {
+                    return arg;
+                } else {
+                    return func;
+                }
+            }
+
+            if(func["function"]) {
+                for(i = 0; i < func["function"]["begin"].length; i++) {
+                    result = betaTrans(func["function"]["begin"][i], arg, func["function"].args[0]);
+                }
+                return result;
+            } else {
+                return func;
+            }
+        }
+
+        function serializeJson(json) {
+            var result = "",
+                varnames = "",
+                beginClause;
+
+            function jsonarg(arg) {
+                if(isArray(arg)) {
+                    result += "(" + serializeJson(arg) + ")";
+                } else {
+                    result += arg;
+                }
+            }
+
+            if(isArray(json)) {
+                jsonarg(json[0]);
+                jsonarg(json[1]);
+            } else if(json["function"]) {
+                varnames = json["function"].args[0];
+                beginClause = json["function"]["begin"][0];
+                for(; beginClause["function"]; beginClause = beginClause["function"]["begin"][0]) {
+                    varnames += beginClause["function"].args[0];
+                }
+                result += "^" + varnames + "." + serializeJson(beginClause);
+            } else {
+                result += json;
+            }
+            return result;
+        }
+
         function evalJson(json) {
             function evalJson1(json, env) {
-                var i,
-                    result;
-
                 if(isArray(json)) {
                     if(json[0] === "print") {
                         log(json[1].q);
@@ -519,12 +725,27 @@
             });
         }
 
-        return function(prog) {
-            var result = allParser(prog, 0, []);
-            if(result) {
-                return evalJson(result.attr);
-            } else {
-                throw new Error("Syntax error");
+        return {
+            oneline: function(prog) {
+                var result;
+
+                if(!!(result = macro(prog, 0, []))) {
+                    return "Macro Defined.";
+                } else if(!!(result = parser(prog, 0, []))) {
+                    evalJson(result.attr);
+                    return "Done.";
+                } else {
+                    return "Syntax error";
+                }
+            },
+
+            browser: function(prog) {
+                var result = allParser(prog, 0, []);
+                if(result) {
+                    return result.attr;
+                } else {
+                    throw new Error("Syntax error");
+                }
             }
         };
     }
