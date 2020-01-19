@@ -332,15 +332,24 @@
                 return r.choice(
                     r.concat("(", exprlist, ")"),
                     lambda,
-                    r.action(/[a-z]/, function(match, syn, inh) {
+                    r.action(/[a-z][0-9]*/, function(match, syn, inh) {
                         return match;
                     }),
 
-                    r.action(/[A-Z][_a-z0-9]*/, function(match, syn, inh) {
+                    r.action(/[A-Z]([0-9]*|\**)/, function(match, syn, inh) {
                         if(!macroEnv[match]) {
                             throw new Error("Macro not defined: " + match);
                         }
                         return substMacro(macroEnv[match]);
+                    }),
+
+                    r.action(/\[[^\[\]\=]+\]/, function(match, syn, inh) {
+                        var name = match.substring(1, match.length - 1);
+
+                        if(!macroEnv[name]) {
+                            throw new Error("Macro not defined: " + name);
+                        }
+                        return substMacro(macroEnv[name]);
                     }),
 
                     r.action(/<[^>]+>/, function(match, syn, inh) {
@@ -353,7 +362,7 @@
                     }),
 
                     r.concat(
-                        "[",
+                        "[[",
                         r.attr([]),
                         r.oneOrMore(
                             r.action(expr, function(match, syn, inh) {
@@ -368,7 +377,7 @@
                             r.action("", function(match, syn, inh) {
                                 return makeList(inh, substMacro(objFalse));
                             })),
-                        "]"),
+                        "]]"),
 
                     r.action(/[0-9]+/, function(match, syn, inh) {
                         var num = parseFloat(match),
@@ -407,7 +416,7 @@
                         r.attr([]),
                         r.oneOrMore(
                             r.action(
-                                /[a-z]/, function(match, syn, inh) {
+                                /[a-z][0-9]*/, function(match, syn, inh) {
                                     return inh.concat([match]);
                                 }))),
                     ".",
@@ -421,32 +430,62 @@
 
         var macroEnv = {};
         var macro = r.concat(
-                r.action(/[A-Z][_a-z0-9]*/, function(match, syn, inh) {
+            r.choice(
+                r.action(/[^\[\]\=\s]+/, function(match, syn, inh) {
                     return match;
                 }),
-                r.opt(":"),
-                "=",
-                r.action(parser, function(match, syn, inh) {
-                    if(macroEnv[inh]) {
-                        throw new Error("Macro has already defined: " + inh);
-                    }
-                    macroEnv[inh] = syn;
-                }));
+                r.action(/\[[^\[\]\=]+\]/, function(match, syn, inh) {
+                    return match.substring(1, match.length - 1);
+                })
+            ),
+            r.opt(":"),
+            r.concat("=", r.lookaheadNot("=")),
+            r.action(parser, function(match, syn, inh) {
+                if(macroEnv[inh]) {
+                    throw new Error("Macro has already defined: " + inh);
+                }
+                macroEnv[inh] = syn;
+            }));
+
+        var equivalent = r.concat(
+            parser,
+            "==",
+            r.action(parser, function(match, syn, inh) {
+                return isEquivalent(syn, inh);
+            }));
+
+        var evalParser = r.concat(
+            "`",
+            r.action(parser, function(match, syn, inh) {
+                evalJson(syn);
+                return objTrue;
+            }));
 
         var allParser = r.concat(
             r.zeroOrMore(r.concat(macro, /\r\n|\r|\n/)),
             r.choice(
-                r.concat("`", r.action(parser, function(match, syn, inh) {
-                    log(serializeJson(substDemacro(betaTransformAll(syn))));
-                    return "a";
-                })),
+                r.action(equivalent, function(match, syn, inh) {
+                    if(syn) {
+                        return substDemacro(objTrue);
+                    } else {
+                        return substDemacro(objFalse);
+                    }
+                }),
+                r.action(evalParser, function(match, syn, inh) {
+                    return substDemacro(syn);
+                }),
                 r.action(parser, function(match, syn, inh) {
-                    log(evalJson(syn));
-                    return "a";
+                    return substDemacro(betaTransformAll(syn));
                 })
             )
         );
-        var cons, objFalse;
+
+        function isEquivalent(func1, func2) {
+            var normalized1 = substNormalize(betaTransformAll(func1)),
+                normalized2 = substNormalize(betaTransformAll(func2));
+
+            return isEqual(normalized1, normalized2);
+        }
 
         function makeList(anArray, objNil) {
             function make(i) {
@@ -520,7 +559,7 @@
         function substDemacro(body) {
             var freeVars = [],
                 count = "a".charCodeAt(0),
-                countEnd = "z".charCodeAt(0);
+                countEnd = "z".charCodeAt(0) + 1;
 
             function collectFreeVariable(body) {
                 var i;
@@ -533,6 +572,8 @@
                     collectFreeVariable(body["function"]["begin"]);
                 } else if(typeof body === "string" && body.length === 1) {
                     freeVars[body.charCodeAt(0)] = 1;
+                } else if(typeof body === "string" && /a[0-9]+/.test(body)) {
+                    freeVars[parseInt(body.substring(1, body.length)) + countEnd] = 1;
                 }
             }
 
@@ -540,20 +581,33 @@
                 var result;
 
                 for(; freeVars[count]; count++) {}
-                if(count > countEnd) {
-                    throw new Error("Too many variables");
+                if(count < countEnd) {
+                    result = String.fromCharCode(count);
+                } else {
+                    result = "a" + (count - countEnd);
                 }
-                result = String.fromCharCode(count);
                 count++;
                 return result;
             }
 
+            freeVars[countEnd] = 1;
             collectFreeVariable(body);
             return substMacro(body, varNameBuilder);
         }
 
+        function substNormalize(body) {
+            var count = 1;
+
+            function varNameBuilder() {
+                return "v#" + (count++);
+            }
+            return substMacro(body, varNameBuilder);
+        }
+
         function defmacro(def) {
-            macro(def, 0, 0);
+            if(!macro(def, 0, 0)) {
+                throw new Error("Internal Error");
+            }
         }
 
         if(!isInteger(maxnum) || maxnum < 0) {
@@ -569,8 +623,9 @@
         defmacro("Car = ^p.pT");
         defmacro("Cdr = ^p.pF");
         defmacro("Isnil = ^x.x(^abc.F)T");
-        cons = macroEnv["Cons"];
-        objFalse = macroEnv["F"];
+        var cons = macroEnv["Cons"];
+        var objTrue = macroEnv["T"];
+        var objFalse = macroEnv["F"];
 
         function betaTransformAll(func) {
             var before,
@@ -585,7 +640,7 @@
 
         function betaTransformAll1(func) {
             var i,
-                result = [];
+                result;
 
             if(isArray(func)) {
                 if(func[0] === "print") {
@@ -597,12 +652,12 @@
                 }
             } else if(func["function"]) {
                 for(i = 0; i < func["function"]["begin"].length; i++) {
-                    result.push(betaTransformAll1(func["function"]["begin"][i]));
+                    result = betaTransformAll1(func["function"]["begin"][i]);
                 }
                 return {
                     "function": {
                         args: [func["function"].args[0]],
-                        begin: result
+                        begin: [result]
                     }
                 };
             } else {
@@ -616,7 +671,7 @@
 
             function betaTrans(func, arg, name) {
                 var i,
-                    result = [];
+                    result;
 
                 if(isArray(func)) {
                     if(func[0] === "print") {
@@ -626,12 +681,12 @@
                     }
                 } else if(func["function"]) {
                     for(i = 0; i < func["function"]["begin"].length; i++) {
-                        result.push(betaTrans(func["function"]["begin"][i], arg, name));
+                        result = betaTrans(func["function"]["begin"][i], arg, name);
                     }
                     return {
                         "function": {
                             args: [func["function"].args[0]],
-                            begin: result
+                            begin: [result]
                         }
                     };
                 } else if(func === name) {
@@ -665,8 +720,12 @@
             }
 
             if(isArray(json)) {
-                jsonarg(json[0]);
-                jsonarg(json[1]);
+                if(!isArray(json[1])) {
+                    result = serializeJson(json[0]) + json[1];
+                } else {
+                    result = serializeJson(json[0]);
+                    jsonarg(json[1]);
+                }
             } else if(json["function"]) {
                 varnames = json["function"].args[0];
                 beginClause = json["function"]["begin"][0];
@@ -730,10 +789,13 @@
                 var result;
 
                 if(!!(result = macro(prog, 0, []))) {
-                    return "Macro Defined.";
+                    return "Macro Defined";
+                } else if(!!(result = equivalent(prog, 0, []))) {
+                    return result.attr ? "Yes" : "No";
+                } else if(!!(result = evalParser(prog, 0, []))) {
+                    return "Done";
                 } else if(!!(result = parser(prog, 0, []))) {
-                    evalJson(result.attr);
-                    return "Done.";
+                    return serializeJson(substDemacro(result.attr));
                 } else {
                     return "Syntax error";
                 }
@@ -742,6 +804,7 @@
             browser: function(prog) {
                 var result = allParser(prog, 0, []);
                 if(result) {
+                    log(serializeJson(result.attr));
                     return result.attr;
                 } else {
                     throw new Error("Syntax error");
