@@ -280,7 +280,7 @@
                     i;
 
                 if(!optKeys) {
-                    throw new Error("keys are not set");
+                    throw new Error("Fatal: keys are not set");
                 }
                 for(i = 0; i < optKeys.length; i++) {
                     if(key.length < optKeys[i] && key === optKeys[i].substring(0, key.length)) {
@@ -292,7 +292,7 @@
 
             notKey: function() {
                 if(!optKeys) {
-                    throw new Error("keys are not set");
+                    throw new Error("Fatal: keys are not set");
                 }
                 return me.lookaheadNot(me.choice.apply(null, optKeys));
             },
@@ -338,7 +338,7 @@
 
                     r.action(/[A-Z]([0-9]*|\**)/, function(match, syn, inh) {
                         if(!macroEnv[match]) {
-                            throw new Error("Macro not defined: " + match);
+                            throw new Error("Oiseau: Macro not defined: " + match);
                         }
                         return substMacro(macroEnv[match]);
                     }),
@@ -347,7 +347,7 @@
                         var name = match.substring(1, match.length - 1);
 
                         if(!macroEnv[name]) {
-                            throw new Error("Macro not defined: " + name);
+                            throw new Error("Oiseau: Macro not defined: " + name);
                         }
                         return substMacro(macroEnv[name]);
                     }),
@@ -387,7 +387,7 @@
                             result = xarg;
 
                         if(!isInteger(num) || num > maxnum) {
-                            throw new Error("Number too big");
+                            throw new Error("Oiseau: Number too big");
                         }
                         for(i = 0; i < num; i++) {
                             result = [funcarg, result];
@@ -442,7 +442,7 @@
             r.concat("=", r.lookaheadNot("=")),
             r.action(parser, function(match, syn, inh) {
                 if(macroEnv[inh]) {
-                    throw new Error("Macro has already defined: " + inh);
+                    throw new Error("Oiseau: Macro has already defined: " + inh);
                 }
                 macroEnv[inh] = syn;
             }));
@@ -614,12 +614,12 @@
 
         function defmacro(def) {
             if(!macro(def, 0, 0)) {
-                throw new Error("Internal Error");
+                throw new Error("Fatal: Internal Error");
             }
         }
 
         if(!isInteger(maxnum) || maxnum < 0) {
-            throw new Error("Invalid max number");
+            throw new Error("Oiseau: Invalid max number");
         }
 
         defmacro("S = ^xyz.xz(yz)");
@@ -748,7 +748,6 @@
         }
 
         function evalJson(json, delay, force) {
-
             function evalJson1(json, env) {
                 if(isArray(json)) {
                     if(json[0] === "print") {
@@ -762,7 +761,7 @@
                 } else if(typeof json === "string") {
                     return force(env(json));
                 } else {
-                    throw new Error("Internal Error");
+                    throw new Error("Fatal: Internal Error");
                 }
             }
 
@@ -776,7 +775,7 @@
                         result = evalJson1(body[i], envnew);
                     }
                     if(!result) {
-                        throw new Error("Internal Error");
+                        throw new Error("Fatal: Internal Error");
                     }
                     return result;
                 };
@@ -789,7 +788,7 @@
             }
 
             return evalJson1(json, function(name) {
-                throw new Error("Variable is not bound: " + name);
+                throw new Error("Oiseau: Variable is not bound: " + name);
             });
         }
 
@@ -827,19 +826,24 @@
         }
 
         return {
+            serialize: function(json) {
+                return serializeJson(substDemacro(json));
+            },
+
             oneline: function(prog) {
                 var result;
 
                 if(!!(result = macro(prog, 0, []))) {
-                    return "Macro Defined";
+                    log("Macro Defined.");
+                    return objTrue;
                 } else if(!!(result = equivalent(prog, 0, []))) {
-                    return result.attr ? "Yes" : "No";
+                    return result.attr ? objTrue : objFalse;
                 } else if(!!(result = evalParser(prog, 0, []))) {
-                    return "Done";
+                    return objTrue;
                 } else if(!!(result = parser(prog, 0, []))) {
-                    return serializeJson(substDemacro(result.attr));
+                    return betaTransformAll(result.attr);
                 } else {
-                    return "Syntax error";
+                    throw new Error("Oiseau: Syntax error");
                 }
             },
 
@@ -849,7 +853,7 @@
                     log(serializeJson(result.attr));
                     return result.attr;
                 } else {
-                    throw new Error("Syntax error");
+                    throw new Error("Oiseau: Syntax error");
                 }
             }
         };

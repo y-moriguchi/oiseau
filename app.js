@@ -8,8 +8,16 @@ function repl() {
         var result;
 
         if(answer !== "exit") {
-            result = oiseauEnv.oneline(answer);
-            console.log(result);
+            try {
+                result = oiseauEnv.oneline(answer);
+                console.log(oiseauEnv.serialize(result));
+            } catch(e) {
+                if(/Oiseau:/.test(e.message)) {
+                    console.log(e.message);
+                } else {
+                    throw e;
+                }
+            }
             repl();
         } else {
             console.log("Exit.");
