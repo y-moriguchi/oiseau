@@ -315,6 +315,7 @@
     function Lambda(option) {
         var opt = option ? option : {};
         var log = opt.log ? opt.log : console.log;
+        var maxIteration = opt.iteration ? opt.iteration : 2500;
         var maxnum = opt.maxNumber ? opt.maxNumber : 256;
         var count = 1;
         var r = Rena({ ignore: /[ \t]+/ });
@@ -637,11 +638,15 @@
 
         function betaTransformAll(func) {
             var before,
-                after = func;
+                after = func,
+                i = 0;
 
             do {
                 before = after;
                 after = betaTransformAll1(after);
+                if(i++ >= maxIteration) {
+                    throw new Error("Oiseau: Max iteration exceeded: Maybe infinite loop");
+                }
             } while(!isEqual(before, after));
             return after;
         }
