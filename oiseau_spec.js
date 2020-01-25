@@ -145,5 +145,41 @@ describe("Oiseau", function() {
             oi.eval("^x.x(^y.y(^z.z))", "^a.a(^b.b(^c.c))");
         });
     });
+
+    describe("evaluator", function() {
+        it("strict", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("Z = ^f.(^g.gg)(^px.f(pp)x)", "^ab.a");
+            oi.eval("Just = ^zxy.xz", "^ab.a");
+            oi.eval("Get = ^xy.xyI", "^ab.a");
+            oi.eval("Mt = ^x.([Isnil]x)F(([Car]x)([Just]([Cdr]x))F)", "^ab.a");
+            oi.eval("Mf = ^x.([Isnil]x)F(([Car]x)F([Just]([Cdr]x)))", "^ab.a");
+            oi.eval("Concat = ^xyz.(xz)yF", "^ab.a");
+            oi.eval("Choice = ^xyz.(xz)[Just](yz)", "^ab.a");
+            oi.eval("Ma = Z(^a.[Choice]([Concat][Mt]a)[Mf])", "^ab.a");
+            oi.eval("`[Get]([Ma][[TTTT]])<OK>", "^ab.a");
+            oi.log("Macro Defined.");
+            oi.eval("`[Get]([Ma][[TTTF]])<OK>", "^ab.a");
+            oi.log("OK");
+        });
+
+        it("nonstrict", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("Y = ^f.(^x.f(xx))(^x.f(xx))", "^ab.a");
+            oi.eval("Just = ^zxy.xz", "^ab.a");
+            oi.eval("Get = ^xy.xyI", "^ab.a");
+            oi.eval("Mt = ^x.([Isnil]x)F(([Car]x)([Just]([Cdr]x))F)", "^ab.a");
+            oi.eval("Mf = ^x.([Isnil]x)F(([Car]x)F([Just]([Cdr]x)))", "^ab.a");
+            oi.eval("Concat = ^xyz.(xz)yF", "^ab.a");
+            oi.eval("Choice = ^xyz.(xz)[Just](yz)", "^ab.a");
+            oi.eval("Ma = Y(^a.[Choice]([Concat][Mt]a)[Mf])", "^ab.a");
+            oi.eval("``[Get]([Ma][[TTTT]])<OK>", "^ab.a");
+            oi.log("Macro Defined.");
+            oi.eval("``[Get]([Ma][[TTTF]])<OK>", "^ab.a");
+            oi.log("OK");
+        });
+    });
 });
 
