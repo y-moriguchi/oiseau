@@ -33,7 +33,9 @@
     }
 
     function isEqual(obj1, obj2) {
-        var i;
+        var i,
+            result1,
+            result2;
 
         if(isArray(obj1) && isArray(obj2)) {
             if(obj1.length !== obj2.length) {
@@ -47,18 +49,24 @@
                 return true;
             }
         } else if(isObject(obj1) && isObject(obj2)) {
+            result1 = [];
+            result2 = [];
             for(i in obj1) {
                 if(obj1.hasOwnProperty(i)) {
-                    if(!isEqual(obj1[i], obj2[i])) {
-                        return false;
-                    }
+                    result1.push(i);
                 }
             }
             for(i in obj2) {
                 if(obj2.hasOwnProperty(i)) {
-                    if(!isEqual(obj2[i], obj1[i])) {
-                        return false;
-                    }
+                    result2.push(i);
+                }
+            }
+            if(!isEqual(result1, result2)) {
+                return false;
+            }
+            for(i = 0; i < result1.length; i++) {
+                if(!isEqual(obj1[result1[i]], obj2[result1[i]])) {
+                    return false;
                 }
             }
             return true;
@@ -337,7 +345,7 @@
                         return match;
                     }),
 
-                    r.action(/[A-Z]([0-9]*|\**)/, function(match, syn, inh) {
+                    r.action(/[A-Z]([0-9]+|\*+)?/, function(match, syn, inh) {
                         if(!macroEnv[match]) {
                             throw new Error("Oiseau: Macro not defined: " + match);
                         }
@@ -412,7 +420,7 @@
 
             function(exprlist, expr, lambda) {
                 return r.concat(
-                    "^",
+                    r.choice("^", "λ"),
                     r.concat(
                         r.attr([]),
                         r.oneOrMore(
@@ -733,8 +741,10 @@
             }
 
             if(isArray(json)) {
-                if(!isArray(json[1])) {
+                if(typeof json[1] === "string") {
                     result = serializeJson(json[0]) + json[1];
+                } else if(!isArray(json[1])) {
+                    result = serializeJson(json[0]) + "(" + serializeJson(json[1]) + ")";
                 } else {
                     result = serializeJson(json[0]);
                     jsonarg(json[1]);
