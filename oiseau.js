@@ -454,12 +454,20 @@
                 return isEquivalent(syn, inh);
             }));
 
-        var evalParser = r.concat(
-            "`",
-            r.action(parser, function(match, syn, inh) {
-                evalJson(syn);
-                return objTrue;
-            }));
+        var evalParser = r.choice(
+            r.concat(
+                "``",
+                r.action(parser, function(match, syn, inh) {
+                    evalJsonNonstrict(syn);
+                    return objTrue;
+                })),
+            r.concat(
+                "`",
+                r.action(parser, function(match, syn, inh) {
+                    evalJsonStrict(syn);
+                    return objTrue;
+                }))
+            );
 
         var allParser = r.concat(
             r.zeroOrMore(r.concat(macro, /\r\n|\r|\n/)),
@@ -739,19 +747,20 @@
             return result;
         }
 
-        function evalJson(json) {
+        function evalJson(json, delay, force) {
+
             function evalJson1(json, env) {
                 if(isArray(json)) {
                     if(json[0] === "print") {
                         log(json[1].q);
                         return null;
                     } else {
-                        return (evalJson1(json[0], env))(evalJson1(json[1], env));
+                        return (force(evalJson1(json[0], env)))(delay(evalJson1, json[1], env));
                     }
                 } else if(json["function"]) {
                     return closure(json["function"]["begin"], json["function"].args[0], env);
                 } else if(typeof json === "string") {
-                    return env(json);
+                    return force(env(json));
                 } else {
                     throw new Error("Internal Error");
                 }
@@ -782,6 +791,39 @@
             return evalJson1(json, function(name) {
                 throw new Error("Variable is not bound: " + name);
             });
+        }
+
+        function evalJsonNonstrict(json) {
+            function Delay(value) {
+                this.value = value;
+            }
+
+            function delay(evalfunc, value, env) {
+                return new Delay(function() {
+                    return evalfunc(value, env);
+                });
+            }
+
+            function force(value) {
+                var result = value;
+
+                while(result instanceof Delay) {
+                    result = result.value();
+                }
+                return result;
+            }
+            return evalJson(json, delay, force);
+        }
+
+        function evalJsonStrict(json) {
+            function delay(evalfunc, value, env) {
+                return evalfunc(value, env);
+            }
+
+            function force(value) {
+                return value;
+            }
+            return evalJson(json, delay, force);
         }
 
         return {
