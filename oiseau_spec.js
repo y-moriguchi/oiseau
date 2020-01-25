@@ -86,6 +86,12 @@ describe("Oiseau", function() {
             oi.eval("SKK == I", "^ab.a");
             oi.eval("S == K", "^ab.b");
         });
+
+        it("currying", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("^xyz.xyz", "^abc.abc");
+        });
     });
 
     describe("Beta transformation", function() {
@@ -130,6 +136,13 @@ describe("Oiseau", function() {
             oi.eval("^xyz.zxy", "^abc.cab");
             oi.eval("^xyz.x(yz)", "^abc.a(bc)");
             oi.eval("2", "^ab.a(ab)");
+        });
+
+        it("function", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("^x.x(^y.y)(^z.z)", "^a.a(^b.b)(^c.c)");
+            oi.eval("^x.x(^y.y(^z.z))", "^a.a(^b.b(^c.c))");
         });
     });
 });
