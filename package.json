@@ -1,0 +1,33 @@
+{
+  "name": "oiseau",
+  "version": "0.0.0",
+  "description": "A program language based on lambda calculus",
+  "main": "oiseau.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/y-moriguchi/oiseau.git"
+  },
+  "files": [
+    "README.md",
+    "app.js",
+    "oiseau.js",
+    "package.json"
+  ],
+  "bin": {
+    "oiseau": "app.js"
+  },
+  "keywords": [
+    "Language",
+    "lambda-calculus",
+    "combinator-logic"
+  ],
+  "author": "Yuichiro MORIGUCHI",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/y-moriguchi/oiseau/issues"
+  },
+  "homepage": "https://github.com/y-moriguchi/oiseau#readme"
+}

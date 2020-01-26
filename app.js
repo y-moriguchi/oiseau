@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var oiseau = require("./oiseau.js"),
     oiseauEnv = oiseau(),
     rl = require("readline"),
