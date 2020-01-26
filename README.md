@@ -64,3 +64,18 @@ For example, Print "Hello, world." to log.
 #### Evaluation (nonstrict)
 If \`\` are used instead of \`, the expressions are evaluated nonstrictly.  
 
+### Predefined Macros
+Macros which are shown as follows are predefined.
+
+```
+S = ^xyz.xz(yz)
+K = ^xy.z
+I = ^x.x
+T = ^xy.x
+F = ^xy.y
+Cons = ^cdf.fcd
+Car = ^p.pT
+Cdr = ^p.pF
+Isnil = ^x.x(^abc.F)t
+```
+
