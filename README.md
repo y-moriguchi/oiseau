@@ -58,7 +58,7 @@ To evaluate expression, you add \` before the list of expression.
 For example, Print "Hello, world." to log.
 
 ```
-\`<Hello, world.>I
+`<Hello, world.>I
 ```
 
 #### Evaluation (nonstrict)
@@ -76,6 +76,6 @@ F = ^xy.y
 Cons = ^cdf.fcd
 Car = ^p.pT
 Cdr = ^p.pF
-Isnil = ^x.x(^abc.F)t
+Isnil = ^x.x(^abc.F)T
 ```
 
