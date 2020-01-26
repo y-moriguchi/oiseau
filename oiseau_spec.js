@@ -1,3 +1,11 @@
+/*
+ * Oiseau
+ *
+ * Copyright (c) 2020 Yuichiro MORIGUCHI
+ *
+ * This software is released under the MIT License.
+ * http://opensource.org/licenses/mit-license.php
+ **/
 function getOiseauEnv() {
     var env = Oiseau({ log: log }),
         log = "";

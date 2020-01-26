@@ -1,3 +1,11 @@
+/*
+ * Oiseau
+ *
+ * Copyright (c) 2020 Yuichiro MORIGUCHI
+ *
+ * This software is released under the MIT License.
+ * http://opensource.org/licenses/mit-license.php
+ **/
 (function(root) {
     function isObject(obj) {
         return typeof obj === "object" && obj !== null;
