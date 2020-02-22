@@ -911,41 +911,49 @@
                         }
                     });
                 } else if(isArray(body)) {
-                    return {
-                        "combi": {
-                            "combi": "S",
+                    if(!checkFree(body[0], arg) && arg === body[1]) {
+                        return transformT(body[0]);
+                    } else {
+                        return {
+                            "combi": {
+                                "combi": "S",
+                                "apply": transformT({
+                                    "function": {
+                                        "args": [arg],
+                                        "begin": [body[0]]
+                                    }
+                                })
+                            },
                             "apply": transformT({
                                 "function": {
                                     "args": [arg],
-                                    "begin": [body[0]]
+                                    "begin": [body[1]]
                                 }
                             })
-                        },
-                        "apply": transformT({
-                            "function": {
-                                "args": [arg],
-                                "begin": [body[1]]
-                            }
-                        })
-                    };
+                        };
+                    }
                 } else if(body["combi"]) {
-                    return {
-                        "combi": {
-                            "combi": "S",
+                    if(!checkFree(body.combi, arg) && arg === body.apply) {
+                        return transformT(body.combi);
+                    } else {
+                        return {
+                            "combi": {
+                                "combi": "S",
+                                "apply": transformT({
+                                    "function": {
+                                        "args": [arg],
+                                        "begin": [body.combi]
+                                    }
+                                })
+                            },
                             "apply": transformT({
                                 "function": {
                                     "args": [arg],
-                                    "begin": [body.combi]
+                                    "begin": [body.apply]
                                 }
                             })
-                        },
-                        "apply": transformT({
-                            "function": {
-                                "args": [arg],
-                                "begin": [body.apply]
-                            }
-                        })
-                    };
+                        };
+                    }
                 } else {
                     console.log(JSON.stringify(body));
                     throw new Error("Internal Error");
@@ -957,10 +965,12 @@
         }
 
         function serializeSKI(obj) {
-            if(isObject(obj)) {
-                return "(" + serializeSKI(obj.combi) + serializeSKI(obj.apply) + ")";
-            } else {
+            if(!isObject(obj)) {
                 return obj;
+            } else if(isObject(obj.apply)) {
+                return serializeSKI(obj.combi) + "(" + serializeSKI(obj.apply) + ")";
+            } else {
+                return serializeSKI(obj.combi) + obj.apply;
             }
         }
 
@@ -974,7 +984,7 @@
 
                 if(/^@/.test(prog)) {
                     result = parser(prog, 1, []);
-                    log(serializeSKI(transformT(result.attr)));
+                    log(serializeSKI(transformT(betaTransformAll(result.attr))));
                     return objTrue;
                 } else if(!!(result = macro(prog, 0, []))) {
                     log("Macro Defined.");

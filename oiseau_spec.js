@@ -189,5 +189,51 @@ describe("Oiseau", function() {
             oi.log("OK");
         });
     });
+
+    describe("T[] transform", function() {
+        it("^xy.yx", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("@^xy.yx", "^ab.a");
+            oi.log("S(K(SI))K");
+        });
+
+        it("^xyz.x(yz)", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("@^xyz.x(yz)", "^ab.a");
+            oi.log("S(KS)K");
+        });
+
+        it("^xyz.xzy", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("@^xyz.xzy", "^ab.a");
+            oi.log("S(S(KS)(S(KK)S))(KK)");
+        });
+
+        it("xy", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("@x(^y.y)", "^ab.a");
+            oi.log("xI");
+        });
+
+        it("X(X(XX))", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("X=^x.(xS)K", "^ab.a");
+            oi.eval("@X(X(XX))", "^ab.a");
+            oi.log("K");
+        });
+
+        it("X(X(X(XX)))", function() {
+            var oi = getOiseauEnv();
+
+            oi.eval("X=^x.(xS)K", "^ab.a");
+            oi.eval("@X(X(X(XX)))", "^ab.a");
+            oi.log("S");
+        });
+    });
 });
 
