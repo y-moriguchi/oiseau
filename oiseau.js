@@ -498,6 +498,14 @@
                 }))
             );
 
+        var transformTParser = r.concat(
+            "@",
+            r.action(parser, function(match, syn, inh) {
+                log(serializeSKI(transformT(betaTransformAll(syn))));
+                return objTrue;
+            })
+        );
+
         var allParser = r.concat(
             r.zeroOrMore(r.concat(macro, /\r\n|\r|\n/)),
             r.choice(
@@ -509,6 +517,9 @@
                     }
                 }),
                 r.action(evalParser, function(match, syn, inh) {
+                    return substDemacro(syn);
+                }),
+                r.action(transformTParser, function(match, syn, inh) {
                     return substDemacro(syn);
                 }),
                 r.action(parser, function(match, syn, inh) {
@@ -1003,8 +1014,7 @@
             browser: function(prog) {
                 var result = allParser(prog, 0, []);
                 if(result) {
-                    log(serializeJson(result.attr));
-                    return result.attr;
+                    return serializeJson(betaTransformAll(result.attr));
                 } else {
                     throw new Error("Oiseau: Syntax error");
                 }
