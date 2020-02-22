@@ -53,16 +53,42 @@ True = ^xy.x
 [this is false] = ^xy.y
 ```
 
+### Church numeraals
+Natural numbers is interpreted as Church numerals.  
+For example, number 2 is interpreted as ^ab.a(ab).
+
+### Evaluate expressions
+
+#### Reduction
+To reduce an expression, you just type expression to reduce.
+
+```
+> SKK
+^a.a
+```
+
 #### Evaluation (strict)
 To evaluate expression, you add \` before the list of expression.  
 For example, Print "Hello, world." to log.
 
 ```
-`<Hello, world.>I
+> `<Hello, world.>I
+Hello, world.
+^ab.a
 ```
 
 #### Evaluation (nonstrict)
 If \`\` are used instead of \`, the expressions are evaluated nonstrictly.  
+
+#### T[] Transform
+To transform expression to SKI-combinator form, put @ before the list of expression.
+SKI-combinator form will be printed to log.
+
+```
+> @SKK
+I
+^ab.a
+```
 
 ### Predefined Macros
 Macros which are shown as follows are predefined.
@@ -77,5 +103,62 @@ Cons = ^cdf.fcd
 Car = ^p.pT
 Cdr = ^p.pF
 Isnil = ^x.x(^abc.F)T
+```
+
+### Grammar of Oiseau
+```
+input:
+    macro |
+    evaluation
+
+macro:
+    macro-definition-name macro-eq expression-list
+
+macro-definition-name:
+    <characters except "=", "[", "]", or space> |
+    "[" <characters except "=", "[", or "]"> "]"
+
+macro-eq:
+    "=" | ":="
+
+evalation:
+    expression-list "==" expression-list |
+    "``" expression-list |
+    "`" expression-list |
+    "@" expression-list
+
+expression-list:
+    "(" expression-list ")" |
+    lambda-clause |
+    variable-name |
+    macro-name |
+    "<" <characters except ">"> ">" |
+    "[[" list "]]"
+    number
+
+lambda-clause:
+    lambda-mark variable-list "." expression-list
+
+lambda-mark:
+    "^" | "λ"
+
+variable-list:
+    variable-name variable-list |
+    variable-name
+
+variable-name:
+    "a" .. "z" ("0" .. "9")*
+
+macro-name:
+    "A" .. "Z" (("0" .. "9")+ | "*"+)? |
+    "[" <characters except "=", "[", or "]"> "]"
+
+list:
+    lambda-clause list |
+    lambda-clause "|" lambda-clause |
+    lambda-caluse
+
+number:
+    ("0" .. "9")+
 ```
 
