@@ -83,6 +83,18 @@
         }
     }
 
+    function makeEnv() {
+        return function(name) {
+            return false;
+        };
+    }
+
+    function addEnv(name, env) {
+        return function(nameToMatch) {
+            return name === nameToMatch || env(nameToMatch);
+        };
+    }
+
     function Rena(option) {
         var optIgnore = option ? wrap(option.ignore) : null,
             optKeys = option ? option.keys : null,
@@ -848,6 +860,110 @@
             return evalJson(json, delay, force);
         }
 
+        function checkFree(obj, bound) {
+            function walk(obj, env) {
+                if(obj["function"]) {
+                    return walk(obj["function"]["begin"][0], addEnv(obj["function"]["args"][0], env));
+                } else if(obj["combi"]) {
+                    return walk(obj.combi, env) || walk(obj.apply, env);
+                } else if(isArray(obj)) {
+                    return walk(obj[0], env) || walk(obj[1], env);
+                } else if(env(obj)) {
+                    return true;
+                } else if(typeof obj === "string") {
+                    return false;
+                }
+            }
+            return walk(obj, addEnv(bound, makeEnv()));
+        }
+
+        function transformT(obj) {
+            var arg,
+                body;
+
+            if(typeof obj === "string") {
+                return obj;
+            } else if(isArray(obj)) {
+                return {
+                    "combi": transformT(obj[0]),
+                    "apply": transformT(obj[1])
+                };
+            } else if(obj["combi"]) {
+                return {
+                    "combi": transformT(obj.combi),
+                    "apply": transformT(obj.apply)
+                };
+            } else if(obj["function"]) {
+                arg = obj["function"]["args"][0];
+                body = obj["function"]["begin"][0];
+                if(arg === body) {
+                    return "I";
+                } else if(!checkFree(body, arg)) {
+                    return {
+                        "combi": "K",
+                        "apply": transformT(body)
+                    };
+                } else if(body["function"]) {
+                    return transformT({
+                        "function": {
+                            "args": [arg],
+                            "begin": [transformT(body)]
+                        }
+                    });
+                } else if(isArray(body)) {
+                    return {
+                        "combi": {
+                            "combi": "S",
+                            "apply": transformT({
+                                "function": {
+                                    "args": [arg],
+                                    "begin": [body[0]]
+                                }
+                            })
+                        },
+                        "apply": transformT({
+                            "function": {
+                                "args": [arg],
+                                "begin": [body[1]]
+                            }
+                        })
+                    };
+                } else if(body["combi"]) {
+                    return {
+                        "combi": {
+                            "combi": "S",
+                            "apply": transformT({
+                                "function": {
+                                    "args": [arg],
+                                    "begin": [body.combi]
+                                }
+                            })
+                        },
+                        "apply": transformT({
+                            "function": {
+                                "args": [arg],
+                                "begin": [body.apply]
+                            }
+                        })
+                    };
+                } else {
+                    console.log(JSON.stringify(body));
+                    throw new Error("Internal Error");
+                }
+            } else {
+                console.log(JSON.stringify(obj));
+                throw new Error("Internal Error");
+            }
+        }
+
+        function serializeSKI(obj) {
+            if(isObject(obj)) {
+                return "(" + serializeSKI(obj.combi) + serializeSKI(obj.apply) + ")";
+            } else {
+                return obj;
+            }
+        }
+
         return {
             serialize: function(json) {
                 return serializeJson(substDemacro(json));
@@ -856,7 +972,11 @@
             oneline: function(prog) {
                 var result;
 
-                if(!!(result = macro(prog, 0, []))) {
+                if(/^@/.test(prog)) {
+                    result = parser(prog, 1, []);
+                    log(serializeSKI(transformT(result.attr)));
+                    return objTrue;
+                } else if(!!(result = macro(prog, 0, []))) {
                     log("Macro Defined.");
                     return objTrue;
                 } else if(!!(result = equivalent(prog, 0, []))) {
