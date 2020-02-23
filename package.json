@@ -1,6 +1,6 @@
 {
   "name": "oiseau",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "description": "A program language based on lambda calculus",
   "main": "oiseau.js",
   "scripts": {

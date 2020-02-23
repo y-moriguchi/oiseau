@@ -6,6 +6,24 @@ Features of Oiseau are shown as follows.
 * Macro definition: combinators are implemented by macros
 * Beta reduction
 * Evaluate expression strictly or nonstrictly
+* T[] transform
+
+## How to use
+
+### node.js
+You can download Oiseau from npm.
+
+```
+npm install -g oiseau
+```
+
+To execute REPL, type "oiseau" from command line.
+```
+$ oiseau
+Oiseau Ver. 1.0.0
+> SKK
+^a.a
+```
 
 ## Reference
 

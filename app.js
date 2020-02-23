@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var oiseau = require("./oiseau.js"),
     oiseauEnv = oiseau(),
     rl = require("readline"),
@@ -26,6 +27,6 @@ function repl() {
     });
 }
 
-console.log("Oiseau Ver. 0.1.0");
+console.log("Oiseau Ver. 1.0.0");
 repl();
 
